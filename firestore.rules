@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Leads validation
+    function isValidLead(data) {
+      return data.name is string && data.name.size() <= 200 &&
+             data.source is string && data.source.size() <= 50 &&
+             data.status is string && data.status.size() <= 50 &&
+             (!('email' in data) || data.email is string) &&
+             (!('phone' in data) || data.phone is string) &&
+             (!('notes' in data) || data.notes is string) &&
+             (!('value' in data) || data.value is number) &&
+             (!('createdAt' in data) || data.createdAt is string) &&
+             (!('updatedAt' in data) || data.updatedAt is string);
+    }
+
+    // Scheduled Post validation
+    function isValidScheduledPost(data) {
+      return data.content is string && data.content.size() <= 5000 &&
+             data.platforms is list && data.platforms.size() <= 10 &&
+             data.scheduledTime is string && data.scheduledTime.size() <= 100 &&
+             data.status is string && data.status.size() <= 50 &&
+             (!('imageUrl' in data) || data.imageUrl is string) &&
+             (!('createdAt' in data) || data.createdAt is string);
+    }
+
+    // Review validation
+    function isValidReview(data) {
+      return data.author is string && data.author.size() <= 200 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.content is string && data.content.size() <= 10000 &&
+             data.platform is string && data.platform.size() <= 100 &&
+             data.status is string && data.status.size() <= 50 &&
+             (!('aiResponse' in data) || data.aiResponse is string) &&
+             (!('respondedAt' in data) || data.respondedAt is string) &&
+             (!('createdAt' in data) || data.createdAt is string);
+    }
+
+    // Chatbot Rule validation
+    function isValidChatbotRule(data) {
+      return data.botName is string && data.botName.size() <= 200 &&
+             data.systemPrompt is string && data.systemPrompt.size() <= 10000 &&
+             data.welcomeMessage is string && data.welcomeMessage.size() <= 2000 &&
+             data.isActive is bool &&
+             (!('updatedAt' in data) || data.updatedAt is string);
+    }
+
+    // Chat Message validation
+    function isValidChatMessage(data) {
+      return data.leadId is string && data.leadId.size() <= 128 &&
+             data.sender is string && data.sender.size() <= 100 &&
+             data.message is string && data.message.size() <= 5000 &&
+             (!('createdAt' in data) || data.createdAt is string);
+    }
+
+    // AI Command validation
+    function isValidAICommand(data) {
+      return data.command is string && data.command.size() <= 2000 &&
+             data.action is string && data.action.size() <= 100 &&
+             data.explanation is string && data.explanation.size() <= 5000 &&
+             data.data is map &&
+             (!('createdAt' in data) || data.createdAt is string);
+    }
+
+    // Matches for each collection with static validations
+    match /leads/{leadId} {
+      allow read: if true;
+      allow create, update: if isValidId(leadId) && isValidLead(incoming());
+      allow delete: if isValidId(leadId);
+    }
+
+    match /scheduled_posts/{postId} {
+      allow read: if true;
+      allow create, update: if isValidId(postId) && isValidScheduledPost(incoming());
+      allow delete: if isValidId(postId);
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create, update: if isValidId(reviewId) && isValidReview(incoming());
+      allow delete: if isValidId(reviewId);
+    }
+
+    match /chatbot_rules/{ruleId} {
+      allow read: if true;
+      allow create, update: if isValidId(ruleId) && isValidChatbotRule(incoming());
+      allow delete: if isValidId(ruleId);
+    }
+
+    match /chat_messages/{msgId} {
+      allow read: if true;
+      allow create, update: if isValidId(msgId) && isValidChatMessage(incoming());
+      allow delete: if isValidId(msgId);
+    }
+
+    match /ai_commands/{commandId} {
+      allow read: if true;
+      allow create, update: if isValidId(commandId) && isValidAICommand(incoming());
+      allow delete: if isValidId(commandId);
+    }
+  }
+}

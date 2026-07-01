@@ -1,0 +1,6 @@
+{
+  "name": "STRATIFY (System+ Strategy) System Development",
+  "description": "Enterprise-grade system development & strategy platform featuring high-performance CRM, AI-powered autonomous operations, dynamic social scheduling, multi-channel review processing, and zero-config directive mapping.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

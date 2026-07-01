@@ -1,0 +1,121 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "A business lead captured for tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "source": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "contacted", "proposal", "won", "lost"] },
+        "notes": { "type": "string" },
+        "value": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "source", "status"]
+    },
+    "ScheduledPost": {
+      "title": "ScheduledPost",
+      "description": "A scheduled social media post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "content": { "type": "string" },
+        "platforms": { "type": "array" },
+        "scheduledTime": { "type": "string" },
+        "status": { "type": "string", "enum": ["scheduled", "published", "failed"] },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["content", "platforms", "scheduledTime", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "An online customer review of the business",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "author": { "type": "string" },
+        "rating": { "type": "number" },
+        "content": { "type": "string" },
+        "platform": { "type": "string" },
+        "status": { "type": "string", "enum": ["unanswered", "responded"] },
+        "aiResponse": { "type": "string" },
+        "respondedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["author", "rating", "content", "platform", "status"]
+    },
+    "ChatbotRule": {
+      "title": "ChatbotRule",
+      "description": "AI chatbot prompt configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "botName": { "type": "string" },
+        "systemPrompt": { "type": "string" },
+        "welcomeMessage": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["botName", "systemPrompt", "welcomeMessage", "isActive"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A message in a simulated lead chat thread",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "leadId": { "type": "string" },
+        "sender": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["leadId", "sender", "message"]
+    },
+    "AICommand": {
+      "title": "AICommand",
+      "description": "An operational natural language command processed by the AI system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "command": { "type": "string" },
+        "action": { "type": "string", "enum": ["create_post", "create_lead", "respond_review", "system_message"] },
+        "explanation": { "type": "string" },
+        "data": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["command", "action", "explanation"]
+    }
+  },
+  "firestore": {
+    "leads": {
+      "schema": "Lead",
+      "description": "Captured CRM leads"
+    },
+    "scheduled_posts": {
+      "schema": "ScheduledPost",
+      "description": "Social media queue"
+    },
+    "reviews": {
+      "schema": "Review",
+      "description": "Business online reviews"
+    },
+    "chatbot_rules": {
+      "schema": "ChatbotRule",
+      "description": "Custom prompt setups for the AI chatbot"
+    },
+    "chat_messages": {
+      "schema": "ChatMessage",
+      "description": "Individual messages for lead interaction"
+    },
+    "ai_commands": {
+      "schema": "AICommand",
+      "description": "Natural language action logs"
+    }
+  }
+}
