@@ -38,61 +38,70 @@ async function startServer() {
       return res.status(400).json({ error: "Missing Facebook Access Token." });
     }
     try {
-      const userRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name,picture&access_token=${token}`);
+      // 1. Fetch /me profile - request fields including category to see if it is a Page directly
+      const userRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name,picture,category&access_token=${token}`);
       if (!userRes.ok) {
-        throw new Error("Facebook API returned error status. Triggering automatic high-fidelity workspace fallback.");
+        const errData = await userRes.json().catch(() => ({}));
+        const errMsg = errData?.error?.message || "Invalid token or Facebook Graph API returned an error status.";
+        throw new Error(errMsg);
       }
-      const userProfile = await userRes.json();
+      const meProfile = await userRes.json();
 
-      const accountsRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,category,picture&access_token=${token}`);
-      let pages = [];
-      if (accountsRes.ok) {
-        const accountsData = await accountsRes.json();
-        pages = accountsData.data || [];
+      let pages: any[] = [];
+      let isPageTokenDirectly = false;
+
+      // If it contains a "category", it means the token is already a Page Access Token directly
+      if (meProfile.category) {
+        isPageTokenDirectly = true;
+      } else {
+        // Try fetching accounts (only works for User Access Tokens)
+        const accountsRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,category,picture&access_token=${token}`);
+        if (accountsRes.ok) {
+          const accountsData = await accountsRes.json();
+          pages = accountsData.data || [];
+        } else {
+          // Fall back to direct page token if accounts query fails
+          isPageTokenDirectly = true;
+        }
       }
 
-      res.json({
-        success: true,
-        user: {
-          id: userProfile.id,
-          name: userProfile.name,
-          picture: userProfile.picture?.data?.url
-        },
-        pages: pages.map((p: any) => ({
+      let mappedPages: any[] = [];
+      if (pages.length > 0) {
+        mappedPages = pages.map((p: any) => ({
           id: p.id,
           name: p.name,
-          accessToken: p.access_token,
+          accessToken: p.access_token || token,
           category: p.category,
-          picture: p.picture?.data?.url
-        }))
-      });
-    } catch (error: any) {
-      console.warn("Real Facebook Graph API call failed or timed out. Gracefully executing high-fidelity fallback to ensure continuous operations:", error.message);
-      
-      // Fallback response with live Connected Pages to guarantee flawless operations
+          picture: p.picture?.data?.url || "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
+        }));
+      }
+
+      // If we didn't find any sub-pages but we know it's a page token directly or we need a default fallback page representation
+      if (mappedPages.length === 0) {
+        mappedPages.push({
+          id: meProfile.id,
+          name: meProfile.name,
+          accessToken: token,
+          category: meProfile.category || "Facebook Page (Direct Token Link)",
+          picture: meProfile.picture?.data?.url || "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
+        });
+      }
+
       res.json({
         success: true,
         user: {
-          id: "fb-usr-9998",
-          name: "STRATIFY Enterprise Partner (degshit66)",
-          picture: "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
+          id: meProfile.id,
+          name: meProfile.name,
+          picture: meProfile.picture?.data?.url || "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
         },
-        pages: [
-          {
-            id: "fb-pg-2244",
-            name: "STRATIFY System Strategy Page",
-            accessToken: token,
-            category: "Enterprise System Developer & Strategist",
-            picture: "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
-          },
-          {
-            id: "fb-pg-8811",
-            name: "Degshit Automated Solutions",
-            accessToken: token,
-            category: "Software & Technology Agency",
-            picture: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=120"
-          }
-        ]
+        pages: mappedPages
+      });
+    } catch (error: any) {
+      console.warn("Real Facebook Graph API call failed:", error.message);
+      
+      // Return the real Meta API error back to the user to make setup completely transparent and easy to debug
+      res.status(400).json({ 
+        error: `Meta Graph API Error: ${error.message}. Please double-check your token's validity, expiration, and required scopes (pages_show_list, pages_read_engagement).` 
       });
     }
   });
