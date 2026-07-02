@@ -38,8 +38,8 @@ async function startServer() {
       return res.status(400).json({ error: "Missing Facebook Access Token." });
     }
     try {
-      // 1. Fetch /me profile - request fields including category to see if it is a Page directly
-      const userRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name,picture,category&access_token=${token}`);
+      // 1. Fetch universally supported fields (id, name)
+      const userRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${token}`);
       if (!userRes.ok) {
         const errData = await userRes.json().catch(() => ({}));
         const errMsg = errData?.error?.message || "Invalid token or Facebook Graph API returned an error status.";
@@ -47,22 +47,34 @@ async function startServer() {
       }
       const meProfile = await userRes.json();
 
-      let pages: any[] = [];
-      let isPageTokenDirectly = false;
+      // 2. Fetch optional details (picture, category) in a non-blocking way to tolerate restricted Page tokens
+      let pictureUrl = "https://i.postimg.cc/5yGwSWWR/1782659487700.png";
+      let category = "Facebook Page (Direct Token Link)";
+      try {
+        const detailRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=picture,category&access_token=${token}`);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          if (detailData.picture?.data?.url) {
+            pictureUrl = detailData.picture.data.url;
+          }
+          if (detailData.category) {
+            category = detailData.category;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch optional me details:", e);
+      }
 
-      // If it contains a "category", it means the token is already a Page Access Token directly
-      if (meProfile.category) {
-        isPageTokenDirectly = true;
-      } else {
-        // Try fetching accounts (only works for User Access Tokens)
+      // 3. Try to fetch accounts (works for User Access Tokens)
+      let pages: any[] = [];
+      try {
         const accountsRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,category,picture&access_token=${token}`);
         if (accountsRes.ok) {
           const accountsData = await accountsRes.json();
           pages = accountsData.data || [];
-        } else {
-          // Fall back to direct page token if accounts query fails
-          isPageTokenDirectly = true;
         }
+      } catch (accountsErr) {
+        console.warn("Could not fetch accounts, likely a direct Page Access Token:", accountsErr);
       }
 
       let mappedPages: any[] = [];
@@ -71,19 +83,20 @@ async function startServer() {
           id: p.id,
           name: p.name,
           accessToken: p.access_token || token,
-          category: p.category,
+          category: p.category || "Facebook Page",
           picture: p.picture?.data?.url || "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
         }));
       }
 
-      // If we didn't find any sub-pages but we know it's a page token directly or we need a default fallback page representation
+      // 4. If we didn't find any sub-pages, it means this token is a direct Page Access Token!
+      // Map the /me profile directly as the single available Page!
       if (mappedPages.length === 0) {
         mappedPages.push({
           id: meProfile.id,
           name: meProfile.name,
-          accessToken: token,
-          category: meProfile.category || "Facebook Page (Direct Token Link)",
-          picture: meProfile.picture?.data?.url || "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
+          accessToken: token, // The direct Page Access Token
+          category: category,
+          picture: pictureUrl
         });
       }
 
@@ -92,7 +105,7 @@ async function startServer() {
         user: {
           id: meProfile.id,
           name: meProfile.name,
-          picture: meProfile.picture?.data?.url || "https://i.postimg.cc/5yGwSWWR/1782659487700.png"
+          picture: pictureUrl
         },
         pages: mappedPages
       });
